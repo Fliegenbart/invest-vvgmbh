@@ -228,3 +228,26 @@ def test_unauthenticated_api_never_opens_native_basic_dialog(hosted):
     response=client.get('/api/bootstrap')
     assert response.status_code==401
     assert 'www-authenticate' not in response.headers
+
+
+def test_research_schema_diagnostics_are_saved_without_raw_model_values(hosted,monkeypatch):
+    from pydantic import ValidationError
+    from app.models import Discovery
+    from app.network import ModelSchemaError
+    client,store=hosted
+    for key,value in {'PIA_PROVIDER':'anthropic','PIA_MODEL_ID':'fake-model',
+                      'BRAVE_API_KEY':'fake-search','ANTHROPIC_API_KEY':'fake-key'}.items():
+        monkeypatch.setenv(key,value)
+    def fail(*args,**kwargs):
+        try:
+            Discovery.model_validate({'candidates':[{'name':'private-model-value'}]})
+        except ValidationError as error:
+            raise ModelSchemaError('Kandidatenantwort verletzt das Datenschema; Lauf gestoppt.','discover',error)
+    monkeypatch.setattr('app.main.run_research',fail)
+    run=client.post('/api/research',json={'topic':'Public synthetic research test'}).json()
+    response=client.post('/api/runs/'+run['id']+'/execute',json={})
+    assert response.status_code==200 and response.json()['status']=='failed'
+    saved=store.run(run['id'])
+    assert saved['schema_errors']['stage']=='discover'
+    assert {'field':'candidates.0.theme','code':'missing'} in saved['schema_errors']['issues']
+    assert 'private-model-value' not in str(saved)

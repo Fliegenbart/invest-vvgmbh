@@ -3,7 +3,7 @@ import re
 from datetime import datetime,timezone
 from pydantic import ValidationError
 from .models import ResearchRequest,Discovery,Analysis,Review
-from .network import ResearchError,clean_url,fetch_source,is_primary,normalize_text
+from .network import ResearchError,ModelSchemaError,clean_url,fetch_source,is_primary,normalize_text
 from .storage import now,digest
 
 THEME_QUERIES={
@@ -12,7 +12,7 @@ THEME_QUERIES={
  'Chancen':'space technology profitable growth capital expenditure investor relations',
 }
 
-DISCOVER='''Entdecke maximal die gewünschte Anzahl konkreter Unternehmen, die zur öffentlichen Recherchefrage passen. Die Suchtreffer sind nur Hinweise. Nenne nur Namen, die in den Treffern tatsächlich vorkommen. Mindestens eine discovery_source_id pro Kandidat. Suche nicht zwanghaft drei Namen; es dürfen null sein. Keine bloßen Branchenfonds als Ersatz, wenn die Frage Einzelaktien verlangt. Gattungen, Listing und Finanzzahlen noch NICHT behaupten. Auswahl ist eine Recherchepriorität, keine Kaufempfehlung.'''
+DISCOVER='''Entdecke maximal die gewünschte Anzahl konkreter Unternehmen, die zur öffentlichen Recherchefrage passen. Die Suchtreffer sind nur Hinweise. Nenne nur Namen, die in den Treffern tatsächlich vorkommen. Verwende discovery_source_ids als Liste mit mindestens einer vorhandenen Suchtreffer-ID pro Kandidat. reason_to_research ist ein kurzer Satz mit höchstens 250 Zeichen. theme muss exakt einer der vorgegebenen Kategorien entsprechen. Suche nicht zwanghaft drei Namen; es dürfen null sein. Keine bloßen Branchenfonds als Ersatz, wenn die Frage Einzelaktien verlangt. Gattungen, Listing und Finanzzahlen noch NICHT behaupten. Auswahl ist eine Recherchepriorität, keine Kaufempfehlung.'''
 ANALYZE='''Erstelle eine belegte Research-Erstprüfung ausschließlich aus den bereitgestellten Originaltextauszügen. Höchstens drei Kandidaten. Alle Fakten nur in facts und dort mit einer vorhandenen source_id und einem wörtlichen kurzen zusammenhängenden excerpt aus dem jeweiligen Quellenpaket belegen. Pro Fakt eine Quelle, pro Kandidat maximal fünf Fakten. Wörtliche Auszüge sind Fundstellen, keine automatische semantische Verifikation. Alle anderen Abschnitte als Interpretation der belegten Fakten formulieren und die source_ids angeben. Keine neue unbelegte Finanzkennzahl in Prosa. Veraltete Ergebnisse und teilweise gelesene Dokumente ausdrücklich markieren. Unbekannte Kennzahlen nicht mit null verwechseln. Ohne aktuelle Kursbasis und überprüfte Aktiengattung keine Bewertung als günstig und keine Kursziele. Halte einen Dividendenausblick von einer zugesagten Zahlung getrennt. China-Risiken differenziert prüfen. Nicht belegt/keine Aussage ist zulässig. open_questions muss die entscheidenden Lücken enthalten. Die Bewertung ist immer eine Research-Einschätzung, nie Kauf/Verkauf.'''
 REVIEW='''Prüfe die fertige Erstprüfung kritisch anhand derselben Originalauszüge. Du bist ein zweiter Modelldurchlauf, keine unabhängige Datenquelle. Stelle die stärkste Gegenthese auf. Nenne in unsupported_facts die nullbasierten Indizes der Fakten, deren Aussage nicht durch ihren zugeordneten Auszug getragen wird (falsche Perioden, Währungen, Verwechslungen, bereinigter/unbereinigter Cashflow, Rechtsstruktur). Nenne weitere offene Checks. Gib zu Gegenargumenten vorhandene source_ids an; erfinde keine Fakten. Genau ein Review je Kandidat; identische Namen verwenden.'''
 
@@ -65,7 +65,7 @@ def run_research(request:ResearchRequest,search,model,progress,fetch=fetch_sourc
     try:
         discovery=Discovery.model_validate(model(DISCOVER,{'question':request.topic,'max_candidates':request.max_candidates,
              'themes':request.themes,'search_hits':hits},Discovery.model_json_schema(),max_tokens=1600))
-    except ValidationError as e: raise ResearchError('Kandidatenantwort verletzt das Datenschema; Lauf gestoppt.') from e
+    except ValidationError as e: raise ModelSchemaError('Kandidatenantwort verletzt das Datenschema; Lauf gestoppt.','discover',e) from e
     valid=[]
     for c in discovery.candidates[:request.max_candidates]:
         matching=[h for h in hits if h['id'] in c.discovery_source_ids]
@@ -102,14 +102,14 @@ def run_research(request:ResearchRequest,search,model,progress,fetch=fetch_sourc
     try:
         result=Analysis.model_validate(model(ANALYZE,{'as_of':now(),'question':request.topic,
           'candidates':[c.model_dump() for c in valid],'sources':public_sources},Analysis.model_json_schema(),max_tokens=6000))
-    except ValidationError as e: raise ResearchError('Analyseantwort verletzt das Datenschema; keine fehlerhafte Analyse freigegeben.') from e
+    except ValidationError as e: raise ModelSchemaError('Analyseantwort verletzt das Datenschema; keine fehlerhafte Analyse freigegeben.','analyze',e) from e
     allowed_names={x.name.casefold() for x in valid}
     candidates=[evidence_check(c.model_dump(),originals) for c in result.candidates if c.name.casefold() in allowed_names][:request.max_candidates]
     tick('challenge','Gegenthese und Belegkritik in einem zweiten Durchlauf prüfen')
     # Total calls = discovery + analysis + review. Never silently skip review on model error.
     try:
         review=Review.model_validate(model(REVIEW,{'analysis':candidates,'sources':public_sources},Review.model_json_schema(),max_tokens=3200))
-    except ValidationError as e: raise ResearchError('Gegenprüfung verletzt das Datenschema; keine vollständige Analyse freigegeben.') from e
+    except ValidationError as e: raise ModelSchemaError('Gegenprüfung verletzt das Datenschema; keine vollständige Analyse freigegeben.','challenge',e) from e
     lookup={s['id']:s for s in originals}
     for c in candidates:
         r=next((x for x in review.reviews if x.name.casefold()==c['name'].casefold()),None)

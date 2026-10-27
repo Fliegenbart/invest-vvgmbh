@@ -7,6 +7,20 @@ from pypdf import PdfReader
 from .budget import timeout
 
 class ResearchError(ValueError): pass
+
+
+class ModelSchemaError(ResearchError):
+    """Bounded schema diagnostics without raw model output or invalid input values."""
+    def __init__(self, message, stage, error):
+        super().__init__(message)
+        self.stage = stage
+        self.issues = []
+        for issue in error.errors(include_input=False, include_url=False)[:10]:
+            location = list(issue['loc'])
+            if issue['type'] == 'extra_forbidden' and location:
+                location[-1] = '<extra>'
+            self.issues.append({'field': '.'.join(map(str, location))[:160], 'code': issue['type']})
+
 MAX_BYTES=6_000_000
 # Explicit, inspectable starting registry. Unknown issuer domains are not silently trusted.
 PRIMARY_DOMAINS={

@@ -3,6 +3,7 @@ import json, re, time
 import httpx
 from .network import ResearchError
 from .budget import timeout
+from .structured import claude_json_schema,canonicalize_enum_case
 
 class BraveSearch:
     def __init__(self,key): self.key=key; self.calls=0
@@ -61,6 +62,7 @@ class Model:
                     r=client.post('https://api.anthropic.com/v1/messages',headers={
                         'x-api-key':s['anthropic_key'],'anthropic-version':'2023-06-01','content-type':'application/json'},
                         json={'model':s['model_id'],'max_tokens':max_tokens,'system':SYSTEM,
+                              'output_config':{'format':{'type':'json_schema','schema':claude_json_schema(schema)}},
                               'messages':[{'role':'user','content':user}]})
                     if r.status_code!=200: raise ResearchError(f'Modellaufruf fehlgeschlagen (HTTP {r.status_code}). Modell-ID, Zugang und Kontingente prüfen.')
                     r=r.json()
@@ -85,5 +87,5 @@ class Model:
             def reject(x): raise ValueError(x)
             result=json.loads(text,object_pairs_hook=pairs,parse_constant=reject)
             if not isinstance(result,dict): raise ValueError()
-            return result
+            return canonicalize_enum_case(result,schema) if s['provider']=='anthropic' else result
         except (ValueError,TypeError) as e: raise ResearchError('Modell lieferte kein gültiges JSON. Antwort verworfen; kein automatischer kostenpflichtiger Reparaturaufruf.') from e

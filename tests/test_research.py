@@ -63,3 +63,15 @@ def test_name_not_in_search_results_rejected():
     def fake(*a,**kw):return {'candidates':[{'name':'Invented Co','theme':'Chancen','reason_to_research':'Hallucinated name','discovery_source_ids':['D001']}]}
     r=run_research(req(),Search(),fake,lambda *a:None,fetch=fetch)
     assert r['candidates']==[]
+
+
+def test_discovery_schema_failure_keeps_safe_field_diagnostics():
+    def bad_model(*a,**kw):
+        return {'candidates':[{'name':'Sensitive input must not be logged','theme':'invalid category'}]}
+    with pytest.raises(ResearchError) as captured:
+        run_research(req(),Search(),bad_model,lambda *a:None,fetch=fetch)
+    error=captured.value
+    assert error.stage=='discover'
+    assert {'field':'candidates.0.reason_to_research','code':'missing'} in error.issues
+    assert 'Sensitive input' not in str(error.issues)
+    assert 'invalid category' not in str(error.issues)

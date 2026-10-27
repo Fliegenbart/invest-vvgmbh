@@ -14,7 +14,7 @@ from .storage import Store,now,digest,canonical
 from .settings import Settings
 from .providers import BraveSearch,Model
 from .research import run_research
-from .network import ResearchError
+from .network import ResearchError,ModelSchemaError
 from .valuation import valuation
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -202,6 +202,8 @@ def create_app(data_dir=None):
             r=store.run(rid);r.update(status='cancelled' if r.get('cancel_requested') else 'failed',finished_at=now(),
                error=str(e) if isinstance(e,ResearchError) else 'Recherche fehlgeschlagen. Kein Ergebnis als vollständig ausgegeben.',
                message='Kein vollständiger Bericht. Bereits erfolgte API-Aufrufe können Kosten verursachen.')
+            if isinstance(e,ModelSchemaError):
+                r['schema_errors']={'stage':e.stage,'issues':e.issues}
             store.save_run(r);store.event('research_stopped',{'run_id':rid,'status':r['status']})
     @app.post('/api/research')
     def research(payload:ResearchRequest):
