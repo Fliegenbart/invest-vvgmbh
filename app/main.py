@@ -116,7 +116,8 @@ def create_app(data_dir=None):
             return JSONResponse({'detail':'Lokale Sitzung abgelaufen. Seite neu laden.'},status_code=403)
         response=await call_next(request)
         response.headers['X-Content-Type-Options']='nosniff'
-        response.headers['Referrer-Policy']='no-referrer'
+        # Native form POSTs use Origin: null under no-referrer; keep the login same-origin.
+        response.headers['Referrer-Policy']='same-origin' if public_login else 'no-referrer'
         response.headers['Cache-Control']='no-store'
         response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         return response

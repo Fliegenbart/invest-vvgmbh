@@ -121,6 +121,7 @@ def test_browser_gets_login_form_instead_of_basic_dialog(hosted):
     assert 'www-authenticate' not in response.headers
     login=client.get('/login')
     assert login.status_code==200
+    assert login.headers['referrer-policy']=='same-origin'
     assert 'name="username"' in login.text and 'name="password"' in login.text
     assert 'type="password"' in login.text and 'method="post"' in login.text
     assert 'Tencent' not in login.text and KEY not in login.text
@@ -145,6 +146,7 @@ def test_form_login_creates_private_session_and_serves_app(hosted):
     assert 'Domain=' not in cookie and 'Path=/' in cookie
     assert KEY not in cookie
     assert client.get('/').status_code==200
+    assert client.get('/').headers['referrer-policy']=='no-referrer'
     assert client.get('/assets/app.js').status_code==200
     assert client.get('/api/bootstrap').json()['hosted'] is True
 
