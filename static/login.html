@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Bei PIA anmelden</title>
+  <link rel="stylesheet" href="/login.css">
+</head>
+<body>
+  <main class="login-card">
+    <a class="login-brand" href="/login" aria-label="PIA Anmeldung"><span>p.</span><strong>PIA<small>INVESTMENT RESEARCH</small></strong></a>
+    <p class="eyebrow">DEIN PRIVATER WORKSPACE</p>
+    <h1>Willkommen bei PIA.</h1>
+    <p class="intro">Melde dich an, um deine Recherchen, Watchlist und Entscheidungen zu öffnen.</p>
+    <!--LOGIN_ERROR-->
+    <form action="/login" method="post">
+      <label for="username">Benutzername</label>
+      <input id="username" name="username" autocomplete="username" value="__USERNAME__" maxlength="100" required>
+      <label for="password">Passwort</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" maxlength="1024" required autofocus>
+      <button type="submit">Anmelden <span aria-hidden="true">→</span></button>
+    </form>
+    <p class="login-note">Deine Anmeldung bleibt auf diesem Gerät für bis zu zwölf Stunden gültig.</p>
+    <footer>Eigene Recherche. Bewusste Entscheidungen.</footer>
+  </main>
+</body>
+</html>

@@ -104,3 +104,125 @@ def test_budget_stops(monkeypatch):
         assert 0 < timeout(100) <= 2
         monkeypatch.setattr('app.budget.time.monotonic',lambda:1e15)
         with pytest.raises(ResearchError): timeout(1)
+
+
+def browser_login(client, password=KEY, origin='https://pia.example'):
+    client.auth=None
+    return client.post('/login',data={'username':'pia','password':password},
+                       headers={'Origin':origin},follow_redirects=False)
+
+
+def test_browser_gets_login_form_instead_of_basic_dialog(hosted):
+    client,_=hosted
+    client.auth=None
+    response=client.get('/',headers={'Accept':'text/html'},follow_redirects=False)
+    assert response.status_code==303
+    assert response.headers['location']=='/login'
+    assert 'www-authenticate' not in response.headers
+    login=client.get('/login')
+    assert login.status_code==200
+    assert 'name="username"' in login.text and 'name="password"' in login.text
+    assert 'type="password"' in login.text and 'method="post"' in login.text
+    assert 'Tencent' not in login.text and KEY not in login.text
+    assert client.get('/login.css').status_code==200
+    assert client.get('/assets/app.js').status_code==401
+
+
+def test_browser_can_recover_from_cached_incorrect_basic_credentials(hosted):
+    client,_=hosted
+    response=client.get('/',auth=('pia','old-password'),headers={'Accept':'text/html'},follow_redirects=False)
+    assert response.status_code==303 and response.headers['location']=='/login'
+    assert client.get('/login',auth=('pia','old-password')).status_code==200
+
+
+def test_form_login_creates_private_session_and_serves_app(hosted):
+    client,_=hosted
+    response=browser_login(client)
+    assert response.status_code==303 and response.headers['location']=='/'
+    cookie=response.headers['set-cookie']
+    assert '__Host-pia_session=' in cookie
+    assert 'HttpOnly' in cookie and 'Secure' in cookie and 'SameSite=strict' in cookie
+    assert 'Domain=' not in cookie and 'Path=/' in cookie
+    assert KEY not in cookie
+    assert client.get('/').status_code==200
+    assert client.get('/assets/app.js').status_code==200
+    assert client.get('/api/bootstrap').json()['hosted'] is True
+
+
+def test_browser_session_is_valid_on_another_app_instance(hosted,tmp_path):
+    client,_=hosted
+    assert browser_login(client).status_code==303
+    with TestClient(create_app(tmp_path),base_url='https://pia.example') as another:
+        another.cookies.update(client.cookies)
+        assert another.get('/api/bootstrap').status_code==200
+
+
+def test_form_login_rejects_wrong_password_without_native_auth_dialog(hosted):
+    client,_=hosted
+    response=browser_login(client,password='incorrect-password')
+    assert response.status_code==401
+    assert 'www-authenticate' not in response.headers and 'set-cookie' not in response.headers
+    assert 'role="alert"' in response.text
+    assert 'incorrect-password' not in response.text
+    assert client.get('/api/bootstrap').status_code==401
+
+
+@pytest.mark.parametrize('origin',['https://evil.example','null',''])
+def test_form_login_rejects_cross_origin_and_missing_origin(hosted,origin):
+    client,_=hosted
+    response=browser_login(client,origin=origin)
+    assert response.status_code==403
+    assert 'set-cookie' not in response.headers
+
+
+def test_form_login_rejects_oversized_body(hosted):
+    client,_=hosted
+    client.auth=None
+    response=client.post('/login',content='password='+'x'*5000,
+                        headers={'Origin':'https://pia.example','Content-Type':'application/x-www-form-urlencoded'})
+    assert response.status_code==413
+
+
+def test_form_login_rejects_non_form_body(hosted):
+    client,_=hosted
+    client.auth=None
+    response=client.post('/login',json={'username':'pia','password':KEY},headers={'Origin':'https://pia.example'})
+    assert response.status_code==415
+
+
+def test_session_tampering_expiration_and_key_rotation_are_rejected(hosted,monkeypatch):
+    client,_=hosted
+    response=browser_login(client)
+    assert response.status_code==303
+    cookie=client.cookies.get('__Host-pia_session')
+    assert cookie
+    client.cookies.clear()
+    client.cookies.set('__Host-pia_session',cookie+'tampered')
+    assert client.get('/api/bootstrap').status_code==401
+    client.cookies.clear()
+    browser_login(client)
+    current_time=time.time()
+    with monkeypatch.context() as clock:
+        clock.setattr('app.auth.time.time',lambda:current_time+13*60*60)
+        assert client.get('/api/bootstrap').status_code==401
+    monkeypatch.setenv('PIA_ACCESS_KEY','rotated-'+'z'*40)
+    assert client.get('/api/bootstrap').status_code==401
+
+
+def test_logout_needs_csrf_and_clears_browser_session(hosted):
+    client,_=hosted
+    assert browser_login(client).status_code==303
+    assert client.post('/api/logout',json={},headers={'X-PIA-Token':'incorrect'}).status_code==403
+    csrf=client.get('/api/bootstrap').json()['csrf']
+    response=client.post('/api/logout',json={},headers={'X-PIA-Token':csrf})
+    assert response.status_code==200 and response.json()['ok'] is True
+    assert 'Max-Age=0' in response.headers['set-cookie']
+    assert client.get('/api/bootstrap').status_code==401
+
+
+def test_unauthenticated_api_never_opens_native_basic_dialog(hosted):
+    client,_=hosted
+    client.auth=None
+    response=client.get('/api/bootstrap')
+    assert response.status_code==401
+    assert 'www-authenticate' not in response.headers

@@ -6,7 +6,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from fastapi import FastAPI,HTTPException,Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse,Response,FileResponse
+from fastapi.responses import JSONResponse,Response,FileResponse,RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from .models import Mandate,ConnectionInput,ResearchRequest,WatchItem,DecisionInput,ValuationInput
@@ -93,8 +93,15 @@ def create_app(data_dir=None):
     @app.middleware('http')
     async def local_only(request:Request,call_next):
         host=request.url.hostname
-        if hosted and not cloud_authorized(request):
-            return JSONResponse({'detail':'Anmeldung erforderlich.'},status_code=401,headers={'WWW-Authenticate':'Basic realm="PIA", charset="UTF-8"','Cache-Control':'no-store'})
+        public_login=hosted and request.url.path in ('/login','/login.css')
+        if hosted and not public_login and not cloud_authorized(request):
+            headers={'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}
+            if request.method in ('GET','HEAD') and 'text/html' in request.headers.get('accept',''):
+                return RedirectResponse('/login',status_code=303,headers=headers)
+            # Keep explicit Basic clients compatible without opening native dialogs for browser API requests.
+            if request.headers.get('authorization'):
+                headers['WWW-Authenticate']='Basic realm="PIA", charset="UTF-8"'
+            return JSONResponse({'detail':'Anmeldung erforderlich.'},status_code=401,headers=headers)
         if not hosted and host not in ('127.0.0.1','localhost','::1'):
             return JSONResponse({'detail':'Nur lokale Nutzung erlaubt.'},status_code=403)
         origin=request.headers.get('origin')
@@ -105,7 +112,7 @@ def create_app(data_dir=None):
             if int(request.headers.get('content-length','0'))>100_000:
                 return JSONResponse({'detail':'Anfrage zu groß.'},status_code=413)
         except ValueError: return JSONResponse({'detail':'Ungültige Anfrage.'},status_code=400)
-        if request.method not in ('GET','HEAD','OPTIONS') and not secrets.compare_digest(request.headers.get('x-pia-token',''),token):
+        if not public_login and request.method not in ('GET','HEAD','OPTIONS') and not secrets.compare_digest(request.headers.get('x-pia-token',''),token):
             return JSONResponse({'detail':'Lokale Sitzung abgelaufen. Seite neu laden.'},status_code=403)
         response=await call_next(request)
         response.headers['X-Content-Type-Options']='nosniff'
@@ -113,6 +120,9 @@ def create_app(data_dir=None):
         response.headers['Cache-Control']='no-store'
         response.headers['Content-Security-Policy']="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         return response
+    if hosted:
+        from .auth import install_browser_login
+        install_browser_login(app)
     @app.exception_handler(RequestValidationError)
     async def validation_error(request,exc):
         fields=', '.join('.'.join(str(v) for v in e['loc'][1:]) for e in exc.errors())

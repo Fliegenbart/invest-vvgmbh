@@ -19,9 +19,9 @@ from .storage import Store, SEEDS, canonical, digest, now
 
 
 def cloud_authorized(request):
-    expected = os.getenv('PIA_ACCESS_KEY', '')
-    if len(expected) < 32:
-        return False
+    from .auth import credentials_match, session_authorized
+    if session_authorized(request):
+        return True
     try:
         scheme, encoded = request.headers.get('authorization', '').split(' ', 1)
         if scheme.lower() != 'basic':
@@ -29,9 +29,7 @@ def cloud_authorized(request):
         user, password = base64.b64decode(encoded, validate=True).decode('utf-8').split(':', 1)
     except (ValueError, UnicodeError):
         return False
-    user_ok = secrets.compare_digest(user.encode(), os.getenv('PIA_USERNAME', 'pia').encode())
-    password_ok = secrets.compare_digest(password.encode(), expected.encode())
-    return user_ok and password_ok
+    return credentials_match(user, password)
 
 
 def setup_app(missing):

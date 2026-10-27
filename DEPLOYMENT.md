@@ -2,7 +2,7 @@
 
 ## Lokal geprüft
 
-- 81 automatisierte Tests: bestehende Logik plus Authentifizierung, Cross-Origin-Sperre, CSRF, neutrale öffentliche Kapitalvorgaben, Umgebungsvariablen-Verwaltung und explizite einmalige Request-Ausführung.
+- Automatisierte Tests: bestehende Logik plus Authentifizierung, Cross-Origin-Sperre, CSRF, neutrale öffentliche Kapitalvorgaben, Umgebungsvariablen-Verwaltung und explizite einmalige Request-Ausführung.
 - Syntaxprüfung der JavaScript-Module.
 - Cloud-Testdouble verwendet SQLite; keine Behauptung einer echten PostgreSQL-Prüfung.
 
@@ -15,7 +15,7 @@
 
 ## Nach dem Deploy prüfen
 
-1. Ohne Anmeldung müssen Oberfläche, Assets, API und Exporte abgewiesen werden.
+1. Ohne Anmeldung muss eine Browser-Navigation zur Login-Seite führen. Nur Login-Formular und dessen Stylesheet sind öffentlich; App-Assets, APIs und Exporte bleiben geschützt. Falsche Zugangsdaten müssen einen Fehler im Formular zeigen. Danach Anmeldung, Seitenneuladen, Abmelden und erneute Anmeldung prüfen; es darf kein nativer Basic-Anmeldedialog erforderlich sein.
 2. Nach Anmeldung Mandat ändern, Watchlist-Eintrag erstellen, Bedienbeispiel erzeugen und Entscheidung speichern.
 3. Neu deployen; gespeicherte Einträge müssen erhalten bleiben.
 4. Archiv exportieren und prüfen, dass keine Provider- oder Datenbank-Zugangsdaten enthalten sind.

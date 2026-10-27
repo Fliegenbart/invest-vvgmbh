@@ -4,7 +4,7 @@ Rechercheassistent für langfristigen Vermögensaufbau im eigenen GmbH-Vermögen
 
 ## Status
 
-Version 0.4 ergänzt die lokale Version 0.3 um eine private Vercel-Konfiguration. **Der Code wurde lokal getestet; ein echtes Vercel-Deployment ist noch nicht ausgeführt.** Es stehen keine Modell- oder Datenbankzugänge zur Verfügung. 81 lokale automatisierte Tests bestanden; die Cloud-Tests verwenden einen Speicher-Testdouble, keinen echten PostgreSQL-Server.
+Version 0.4 unterstützt lokalen Betrieb und einen privaten Vercel-Workspace mit PostgreSQL. Im Browser erfolgt die Anmeldung über eine eigene Login-Seite. Die automatisierten Cloud-Tests verwenden einen Speicher-Testdouble; Datenbank, Deployment und Anbieterzugänge müssen zusätzlich in der jeweiligen Umgebung geprüft werden.
 
 ## Privat oder lokal starten
 
@@ -18,7 +18,7 @@ Alternativ Python 3.11+ verwenden, eine virtuelle Umgebung anlegen, `pip install
 
 1. Dieses Repository in Vercel als neues Projekt importieren. Repository-Branch: **flux**. Root Directory: Repository-Wurzel. Die Konfiguration liegt in `vercel.json`; der ASGI-Einstieg ist `api/index.py`. Kein separates Frontend-Build erforderlich.
 2. Eine dauerhafte PostgreSQL-Datenbank verbinden, zum Beispiel über eine vom Nutzer gewählte Vercel-Marketplace-Integration. Die Verbindungszeichenfolge als **DATABASE_URL** hinterlegen. Für Produktion und Vorschau getrennte Datenbanken und Zugangsschlüssel verwenden. Der Code legt seine `pia_`-Tabellen an; Tabellen anderer Anwendungen werden nicht verändert.
-3. **PIA_ACCESS_KEY** mit mindestens 32 zufälligen Zeichen hinterlegen. Erzeugen beispielsweise mit `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Benutzername: **pia**, optional über `PIA_USERNAME` ändern. Der Browser fragt die Zugangsdaten per HTTP Basic Authentication ab. Nur über HTTPS betreiben. Keine Zugangsdaten in URLs einbauen.
+3. **PIA_ACCESS_KEY** mit mindestens 32 zufälligen Zeichen hinterlegen. Erzeugen beispielsweise mit `python -c "import secrets; print(secrets.token_urlsafe(32))"`. Benutzername: **pia**, optional über `PIA_USERNAME` ändern. Die App zeigt ein eigenes Anmeldeformular und setzt nach erfolgreicher Anmeldung ein sicheres, für zwölf Stunden gültiges Sitzungscookie. Über „Abmelden“ wird die Sitzung auf diesem Gerät beendet. Explizite API-Clients können weiterhin HTTP Basic Authentication verwenden. Nur über HTTPS betreiben. Keine Zugangsdaten in URLs einbauen.
 4. Für Live-Recherche **PIA_PROVIDER**, **PIA_MODEL_ID** und **BRAVE_API_KEY** setzen. Bei `PIA_PROVIDER=anthropic` zusätzlich **ANTHROPIC_API_KEY**. Für `bedrock` zusätzlich eine passende **PIA_AWS_REGION** und sichere AWS-Zugangsdaten mit minimal erforderlichen Bedrock-Rechten. Die konkrete Modell-ID muss im eigenen Konto verfügbar sein. Keine Schlüssel im Chat oder im Repository hinterlegen.
 5. Deploy ausführen. Nach Änderungen der Umgebungsvariablen erneut deployen. Zuerst Anmeldung, Demo, Export und Wiederaufruf gespeicherter Einträge prüfen, dann den Verbindungstest und eine kleine Live-Recherche.
 

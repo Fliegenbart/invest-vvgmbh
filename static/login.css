@@ -1,0 +1,21 @@
+:root{font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;color:#202e29;background:#f7f8f5;font-synthesis:none;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;display:grid;place-items:center;padding:32px 20px}
+.login-card{width:100%;max-width:460px;background:white;border:1px solid #e0e4dc;border-radius:16px;padding:38px}
+.login-brand{display:flex;align-items:center;gap:14px;text-decoration:none;color:#182e27;margin-bottom:42px}
+.login-brand>span{font-family:Georgia,serif;font-size:48px;font-weight:600;letter-spacing:-4px;line-height:1}
+.login-brand strong{font-size:22px;letter-spacing:2px;font-weight:600}
+.login-brand small{display:block;font-size:8px;letter-spacing:1.3px;font-weight:400;margin-top:3px}
+.eyebrow{font-size:9px;letter-spacing:1.6px;color:#7b837c;margin:0 0 13px}
+h1{font-size:30px;line-height:1.2;letter-spacing:-1px;font-weight:600;margin:0 0 14px}
+.intro{font-size:13px;line-height:1.7;color:#6d786f;margin:0 0 26px}
+label{display:block;font-size:12px;font-weight:550;margin:18px 0 8px}
+input{width:100%;min-width:0;border:1px solid #d9dfd5;border-radius:7px;background:#fff;color:#202e29;padding:12px;font:inherit;font-size:14px}
+input:focus{border-color:#5c8e75;outline:3px solid #e2ede3}
+button{display:flex;align-items:center;justify-content:space-between;width:100%;margin-top:24px;padding:13px 16px;border:0;border-radius:7px;background:#245441;color:white;font:inherit;font-size:13px;font-weight:550;cursor:pointer}
+button:hover{background:#1b4332}
+button:focus-visible,a:focus-visible{outline:3px solid #6ea08a;outline-offset:4px}
+.login-error{padding:12px 14px;border:1px solid #e8cfc1;border-radius:7px;background:#fbf2eb;color:#884d32;font-size:12px;line-height:1.6}
+.login-note{font-size:11px;line-height:1.7;color:#7b837c;margin:18px 0 0}
+footer{border-top:1px solid #edf0e8;margin-top:30px;padding-top:20px;font-size:10px;color:#8b9583}
+@media(max-width:480px){body{padding:20px 16px}.login-card{padding:28px 24px}.login-brand{margin-bottom:32px}h1{font-size:27px}}

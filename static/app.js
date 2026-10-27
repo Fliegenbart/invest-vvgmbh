@@ -4,6 +4,7 @@ const state={page:'research',mandate:{},watchlist:[],runs:[],connection:{},activ
 let csrf='',pollTimer;
 async function api(path,method='GET',body){
  const r=await fetch('/api'+path,{method,headers:{'Content-Type':'application/json','X-PIA-Token':csrf},...(body===undefined?{}:{body:JSON.stringify(body)})});
+ if(r.status===401){window.location.replace('/login');throw new Error('Bitte erneut anmelden.');}
  const data=await r.json().catch(()=>({detail:'Keine gültige Antwort vom lokalen Server.'}));
  if(!r.ok)throw new Error(typeof data.detail==='string'?data.detail:'Eingaben oder Verbindung prüfen.');
  return data;
@@ -27,6 +28,7 @@ document.addEventListener('click',async e=>{
  const btn=e.target.closest('[data-action]');if(!btn)return;
  const action=btn.dataset.action,id=btn.dataset.id;
  try{
+  if(action==='logout'){await api('/logout','POST',{});window.location.replace('/login');return;}
   if(action==='close-dialog'){closeModal();return;}
   if(action==='go-settings'){go('settings');return;}
   if(action==='back-research'){state.activeRun=null;render();return;}
